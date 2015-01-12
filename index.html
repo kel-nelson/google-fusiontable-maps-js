@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<!--
+  Copyright 2011 Google Inc. All Rights Reserved.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<html>
+  <head>
+    <meta charset="UTF-8">
+
+    <title>Fusion Tables API Example: Advanced Visualization</title>
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+    <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+
+    <link href="https://developers.google.com/fusiontables/docs/samples/style/default.css" rel="stylesheet" type="text/css"/>
+	<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
+	<link rel="stylesheet" href="http://code.jquery.com/ui/1.11.2/themes/smoothness/jquery-ui.css"/>	
+	
+    <style type="text/css">
+	form.controls-menu
+	{
+		/*border-bottom:solid 1px #ccc;*/
+	}
+	table.controls-menu
+	{
+		/*border-spacing: 10px;*/
+	}
+	table.controls-menu>tbody>tr>th
+	{
+		border-bottom:solid 1px #ddd;
+	}
+	table.controls-menu>tbody>tr>th.spacer,table.controls-menu>tbody>tr>td.spacer
+	{
+		width:5px;
+		border-bottom:none;
+	}
+    table.controls-menu>tbody>tr>th, table.controls-menu>tbody>tr>td
+	{
+		text-align:center;
+		padding:0 4px;
+	}
+	  
+	  #map-canvas {
+        width: 100%;
+      }
+
+      #visualization {
+        width:100%;
+      }
+
+      #legend {
+        background: #FFF;
+        margin: 10px;
+        padding: 5px;
+        width: 150px;
+      }
+
+      #legend p {
+        font-weight: bold;
+        margin-top: 3px;
+      }
+
+      #legend div {
+        clear: both;
+      }
+
+      .color {
+        height: 12px;
+        width: 12px;
+        margin-right: 3px;
+        float: left;
+        display: block;
+      }
+
+      .high {
+        color: #F00;
+      }
+
+      .medium {
+        color: #0F0;
+      }
+
+      .low {
+        color: #00F;
+      }
+
+      .high, .medium, .low {
+        font-weight: bold;
+      }
+	  
+	  .googft-info-window
+	  {
+		font-size:8px;
+	  }
+    </style>
+
+    <script type="text/javascript">
+		//google.load("jquery", " 2.1.3");
+		//google.load("jqueryui", "1.11.2");	
+		google.load('visualization', '1', { packages: ['corechart'] });
+		
+		var gdoc_id = '1XGfTtjUQaCiAIBcR4VjryomxB1LN5St5rrC-BNCm';
+		var years = [2007,2012,2025];
+		var data_sets = [ 
+			{name:"beef",map_col_name:"cattle_cows_beef_inventory_sqmi_2012",chart_col_name:"cattle_cows_beef_inventory_2012",title:"Beef"},
+			{name:"hogs",map_col_name:"hogs_inventory_sqmi_2012",chart_col_name:"hogs_inventory_2012",title:"Hogs"}
+		];
+		var data_set_selected = null;
+		var map_data_layers = [];
+		
+		var default_year_index = 1;
+		var default_coords = [47.593986, -100.346211];
+		var default_zoom = 7;
+		var default_layer="Beef";
+		var map = null;
+		
+      /**
+       * Sector type mapped to a style rule.
+       * @type {Object}
+       * @const
+       */
+      var LAYER_STYLES = {
+        'Beef': {
+          'min': 0,
+          'max': 30,
+          'colors': [
+            '#f4cccc',
+            '#ea9999',
+            '#e06666',
+            '#cc0000',
+            '#990000'
+          ]
+        },
+        'Hogs': {
+          'min': 0,
+          'max': 18,
+          'colors': [
+            '#d0e0e3',
+            '#a2c4c9',
+            '#76a5af',
+            '#45818e',
+            '#134f5c'
+          ]
+        }
+      }
+
+      function initialize() {
+	  
+	  //data-set select setup
+	  setup_data_set_items();
+	  
+	  //Slider setup
+	  $("#year_value").text(years[default_year_index]);
+		slider_options = {
+			range: "max",
+			min: 0,
+			max: (years.length-1),
+			values:[default_year_index],
+			slide: function(event, ui) {
+				$("#year_value").text(years[ui.values[0]]); // Fetch selected value from array               
+			}  
+		};
+		$("#year_slider").slider(slider_options);
+		$("#year_slider_label_start").text(years[0]);
+		$("#year_slider_label_end").text(years[years.length-1]);
+		
+        map = new google.maps.Map(document.getElementById('map-canvas'), {
+          center: new google.maps.LatLng(default_coords[0],default_coords[1]),
+          zoom: default_zoom,
+          mapTypeId: google.maps.MapTypeId.ROADMAP,
+          zoomControlOptions: {
+            style: google.maps.ZoomControlStyle.SMALL
+          },
+        });
+
+		update_screen();
+        //var layer = new google.maps.FusionTablesLayer();
+        //updateLayerQuery(layer, data_set_selected);
+        //layer.setMap(map);
+
+        //createLegend(map, sector);
+        //styleLayerBySector(layer, sector);
+        //styleMap(map);
+        //drawVisualization('',);
+		
+
+/*        google.maps.event.addListener(layer, 'click', function(e) {
+          var county = e.row['County'].value;
+          drawVisualization(county);
+
+          /*var electricity = e.row['2010'].value;
+          if (electricity > 5000) {
+            e.infoWindowHtml = '<p class="high">High Usage!</p>';
+          } else if (electricity > 2500) {
+            e.infoWindowHtml = '<p class="medium">Medium Usage</p>';
+          } else {
+            e.infoWindowHtml = '<p class="low">Low Usage</p>';
+          }
+        });
+
+        google.maps.event.addDomListener(document.getElementById('sector'),
+            'change', function() {
+              sector = this.value;
+              updateLayerQuery(layer, sector);
+              styleLayerBySector(layer, sector);
+              updateLegend(sector);
+            });
+
+        google.maps.event.addDomListener(document.getElementById('county'),
+            'change', function() {
+              var county = this.value;
+              updateLayerQuery(layer, sector, county);
+              drawVisualization(county);
+            });
+			*/
+      }
+	  
+	  function update_screen()
+	  {
+		data_set_selected = $("#data_set_select>option:selected").data("item");
+		drawVisualization(data_set_selected,0); //add year later.
+		
+		/*for(var i=0;i<map_data_layers.length;i++)
+		{
+			map_data_layers[i].setMap(null);
+		}*/
+        addDataLayer(data_set_selected,0); //add year later
+	  }
+	  
+	  function setup_data_set_items(){
+		var control = $("#data_set_select");
+		
+		for(var i = 0;i<data_sets.length;i++)
+		{
+			var item = data_sets[i];
+			var item_html = $("<option name='" + item.name + "'>" + item.title + "</option>").data("item",item);
+			control.append(item_html);
+		}
+		control.selectmenu({
+			change:function(event, ui){
+				update_screen();
+			}
+		});
+	  }
+
+      function addDataLayer(data_set_item, year) {
+		var where = "atlas_state_name = 'North Dakota'"
+		var layer = new google.maps.FusionTablesLayer({
+			query: {
+				select: "geometry",
+				from: gdoc_id,
+				where: where
+			},
+			styles: [
+				{
+				  polygonOptions: {
+					fillColor: '#00FF00',
+					fillOpacity: 0
+				  }
+				}, 
+				{
+				  where: data_set_item.map_col_name + ' > 0',
+				  polygonOptions: {
+					fillOpacity: 0.10
+					//fillColor: '#0000FF'
+				  }
+				}, 
+				{
+				  where: data_set_item.map_col_name + ' > 5',
+				  polygonOptions: {
+					fillOpacity: 0.50
+				  }
+				}
+			]
+			
+			//heatmap: {
+				//enabled: true
+			//}		
+		});
+        layer.setMap(map);		
+		map_data_layers.push(layer);		
+      }
+	  
+	  function build_layer_style_ranges(data_set_item){
+		//var where = "";
+		//var items = data_set_item.max-data_set_item.min;
+		//var ranges = 
+		for(var i=0;i<items;i++)
+		{
+		
+		}
+	  }
+
+      function createLegend(map, sector) {
+        var legendWrapper = document.createElement('div');
+        legendWrapper.id = 'legendWrapper';
+        legendWrapper.index = 1;
+        map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(
+            legendWrapper);
+        legendContent(legendWrapper, sector);
+      }
+
+      function legendContent(legendWrapper, sector) {
+        var legend = document.createElement('div');
+        legend.id = 'legend';
+
+        var title = document.createElement('p');
+        title.innerHTML = sector + ' Electricity Consumption';
+        legend.appendChild(title);
+
+        var layerStyle = LAYER_STYLES[sector];
+        var colors = layerStyle.colors;
+        var minNum = layerStyle.min;
+        var maxNum = layerStyle.max;
+        var step = (maxNum - minNum) / colors.length;
+        for (var i = 0; i < colors.length; i++) {
+          var legendItem = document.createElement('div');
+
+          var color = document.createElement('div');
+          color.setAttribute('class', 'color');
+          color.style.backgroundColor = colors[i];
+          legendItem.appendChild(color);
+
+          var newMin = minNum + step * i;
+          var newMax = newMin + step;
+          var minMax = document.createElement('span');
+          minMax.innerHTML = newMin + ' - ' + newMax;
+          legendItem.appendChild(minMax);
+
+          legend.appendChild(legendItem);
+        }
+
+        legendWrapper.appendChild(legend);
+      }
+
+      function updateLegend(sector) {
+        var legendWrapper = document.getElementById('legendWrapper');
+        var legend = document.getElementById('legend');
+        legendWrapper.removeChild(legend);
+        legendContent(legendWrapper, sector);
+      }
+
+      function styleLayerBySector(layer, sector) {
+        var layerStyle = LAYER_STYLES[sector];
+        var colors = layerStyle.colors;
+        var minNum = layerStyle.min;
+        var maxNum = layerStyle.max;
+        var step = (maxNum - minNum) / colors.length;
+
+        var styles = new Array();
+        for (var i = 0; i < colors.length; i++) {
+          var newMin = minNum + step * i;
+          styles.push({
+            where: generateWhere(newMin, sector),
+            polygonOptions: {
+              fillColor: colors[i],
+              fillOpacity: 1
+            }
+          });
+        }
+        layer.set('styles', styles);
+      }
+
+      function generateWhere(minNum, sector) {
+        var whereClause = new Array();
+        whereClause.push("Sector = '");
+        whereClause.push(sector);
+        whereClause.push("' AND '2010' >= ");
+        whereClause.push(minNum);
+        return whereClause.join('');
+      }
+
+      function styleMap(map) {
+        var style = [{
+          featureType: 'all',
+          stylers: [{
+            saturation: -99
+          }]
+        }, {
+          featureType: 'poi',
+          stylers: [{
+            visibility: 'off'
+          }]
+        }, {
+          featureType: 'road',
+          stylers: [{
+            visibility: 'off'
+          }]
+        }];
+
+        var styledMapType = new google.maps.StyledMapType(style, {
+          map: map,
+          name: 'Styled Map'
+        });
+        map.mapTypes.set('map-style', styledMapType);
+        map.setMapTypeId('map-style');
+      }
+
+      function drawVisualization(data_set_item, year) {
+        google.visualization.drawChart({
+          containerId: "visualization",
+          dataSourceUrl: "http://www.google.com/fusiontables/gvizdata?tq=",
+		  //https://www.googleapis.com/fusiontables/v2/query?sql=SELECT * FROM 1XGfTtjUQaCiAIBcR4VjryomxB1LN5St5rrC-BNCm where atlas_state_name = 'North Dakota'&key=AIzaSyBoAGzeRH2cg1aSXNSY18ISAuibsaF6i98
+		  query: "SELECT atlas_name," + data_set_item.chart_col_name + " FROM 1XGfTtjUQaCiAIBcR4VjryomxB1LN5St5rrC-BNCm where atlas_state_name = 'North Dakota' and " + data_set_item.chart_col_name + " >= 0",
+		  //query: "SELECT geometry, " + data_set + " FROM 1XGfTtjUQaCiAIBcR4VjryomxB1LN5St5rrC-BNCm where atlas_state_name = 'North Dakota' and data_year=" + year,
+          //query: "SELECT Sector,'2006','2007','2008','2009','2010' " + "FROM 18fyPg1LvW3KB3N5DE_ub-MKicB0Nx7vkGn9kw4s WHERE County = '" + county + "'",
+          chartType: "PieChart",
+          options: {
+            title: 'North Dakota',
+            height: 400,
+            width: 400
+          }
+        });
+      }
+
+      google.maps.event.addDomListener(window, 'load', initialize);
+    </script>
+  </head>
+  <body>
+	<div class="container-fluid">
+		<div class="row">
+		<div class="col-md-12">
+			<form class="controls-menu">
+				<table class="controls-menu">
+					<tr>
+						<th>
+							<label class="control-label">Select Year</label>
+						</th>
+						<th class="spacer"></th>
+						<th>
+							<label class="control-label">Select Data-Set</label>
+						</th>
+					</tr>
+					<tr>
+						<td>
+							<div class="container-fluid" style="width:350px;">
+								<div class="row">
+									<div class="col-md-12">
+										<h3 id="year_value" style="text-align:center;"></h3>
+									</div>
+								</div>
+								<div class="row">
+									<div class="col-md-2" style="text-align:center;" id="year_slider_label_start">
+										{{Start Year}}
+									</div>
+									<div class="col-md-8">
+										<div id="year_slider"></div>
+									</div>
+									<div class="col-md-2" style="text-align:center;" id="year_slider_label_end">
+										{{End Year}}
+									</div>
+								</div>
+							</div>
+						</td>
+						<td class="spacer"></td>
+						<td>
+							<select id="data_set_select" style="width:100%"></select>
+						</td>
+					</tr>
+				</table>
+			</form>  
+		</div>
+		<div class="row">
+			<div class="col-md-9">
+				<div id="map-canvas"></div>
+			</div>
+			<div class="col-md-3">
+				<div id="visualization"></div>
+			</div>
+		</div>
+	</div>
+  </body>
+</html>
