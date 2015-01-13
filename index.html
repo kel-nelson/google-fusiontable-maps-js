@@ -18,12 +18,13 @@
   <head>
     <meta charset="UTF-8">
 
-    <title>Fusion Tables API Example: Advanced Visualization</title>
+    <title>Google FusionTable Maps!</title>
 
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
     <script type="text/javascript" src="http://www.google.com/jsapi"></script>
     <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+    <script type="text/javascript" src="config.js"></script>
 
     <link href="https://developers.google.com/fusiontables/docs/samples/style/default.css" rel="stylesheet" type="text/css"/>
 	<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
@@ -33,6 +34,10 @@
 	form.controls-menu
 	{
 		/*border-bottom:solid 1px #ccc;*/
+	}
+	form.controls-menu label
+	{
+		font-size:22px;
 	}
 	table.controls-menu
 	{
@@ -47,12 +52,25 @@
 		width:5px;
 		border-bottom:none;
 	}
-    table.controls-menu>tbody>tr>th, table.controls-menu>tbody>tr>td
+	table.controls-menu>tbody>tr>th
 	{
 		text-align:center;
+	}
+    table.controls-menu>tbody>tr>th, table.controls-menu>tbody>tr>td
+	{
 		padding:0 4px;
 	}
-	  
+	#data_set_select_items
+	{
+		height:100px;
+		overflow-y:auto;
+	}
+	.data-set-color-item
+	{
+		display:inline-block;
+		width:32px;
+		height:32px;
+	}
 	  #map-canvas {
         width: 100%;
       }
@@ -101,30 +119,72 @@
         font-weight: bold;
       }
 	  
-	  .googft-info-window
-	  {
-		font-size:8px;
-	  }
-    </style>
+		.googft-info-window
+		{
+			font-size:8px;
+		}
+		div.tooltip_container
+		{
+			min-width:232px;
+			margin:4px;
+		}
+		.tooltip_title
+		{
+			margin:auto;
+			text-align:center;
+			font-size:24px;
+		}
+		table.tooltip_container
+		{
+			width:100%;
+		}
+		.tooltip_container tr>td
+		{
+			padding:8px;
+		}
+		.tooltip_image
+		{
+			max-width:96px;
+			max-height:96px;
+		}
+	</style>
 
     <script type="text/javascript">
-		//google.load("jquery", " 2.1.3");
-		//google.load("jqueryui", "1.11.2");	
 		google.load('visualization', '1', { packages: ['corechart'] });
-		
-		var gdoc_id = '1XGfTtjUQaCiAIBcR4VjryomxB1LN5St5rrC-BNCm';
-		var years = [2007,2012,2025];
-		var data_sets = [ 
-			{name:"beef",map_col_name:"cattle_cows_beef_inventory_sqmi_2012",chart_col_name:"cattle_cows_beef_inventory_2012",title:"Beef"},
-			{name:"hogs",map_col_name:"hogs_inventory_sqmi_2012",chart_col_name:"hogs_inventory_2012",title:"Hogs"}
-		];
-		var data_set_selected = null;
-		var map_data_layers = [];
-		
+		window.document.title = config.app_title;
+		//var gdoc_id = '1XGfTtjUQaCiAIBcR4VjryomxB1LN5St5rrC-BNCm';
+		var default_coords = config.default_coords;
+		var default_zoom = config.default_zoom;
+		var years = config.years;
 		var default_year_index = 1;
-		var default_coords = [47.593986, -100.346211];
-		var default_zoom = 7;
-		var default_layer="Beef";
+		
+		/*var data_sets = [ 
+			{
+				name:"beef",
+				title:"Beef",
+				chart_col_name:"cattle_cows_beef_inventory_2012",
+				map_col_name:"cattle_cows_beef_inventory_sqmi_2012",
+				map_tooltip_description:"Moooo!",
+				map_tooltip_image_url:"https://189535be0f7cd1123e6f2c1523cde527d6c638f7.googledrive.com/host/0B_EJHkG1A5KKYlhyNkZrTDNuZVE/Hereford_.png",
+				map_color:"#00FF00",
+				map_value_min:0,
+				map_value_max:30
+			},
+			{
+				name:"hogs",
+				title:"Hogs",
+				chart_col_name:"hogs_inventory_2012",
+				map_col_name:"hogs_inventory_sqmi_2012",
+				map_tooltip_description:"Ooooink!",
+				map_tooltip_image_url:"https://189535be0f7cd1123e6f2c1523cde527d6c638f7.googledrive.com/host/0B_EJHkG1A5KKYlhyNkZrTDNuZVE/johnny_automatic_hog_2.png",
+				map_color:"#FF0000",
+				map_value_min:0,
+				map_value_max:30				
+			}
+		];*/
+		var gdoc_selected = config.gdocs[0];
+		var data_set_selected = null;
+		var map_data_layers = new Array(config.map_colors.length);
 		var map = null;
 		
       /**
@@ -160,7 +220,9 @@
       function initialize() {
 	  
 	  //data-set select setup
-	  setup_data_set_items();
+	  //refresh_data_set_items(gdoc_selected.data_sets);
+	  refresh_data_set_colors();
+	  refresh_data_set_items();
 	  
 	  //Slider setup
 	  $("#year_value").text(years[default_year_index]);
@@ -186,7 +248,7 @@
           },
         });
 
-		update_screen();
+		//update_screen();
         //var layer = new google.maps.FusionTablesLayer();
         //updateLayerQuery(layer, data_set_selected);
         //layer.setMap(map);
@@ -240,68 +302,108 @@
         addDataLayer(data_set_selected,0); //add year later
 	  }
 	  
-	  function setup_data_set_items(){
-		var control = $("#data_set_select");
-		
-		for(var i = 0;i<data_sets.length;i++)
+	  function refresh_data_set_items(){
+		var data_sets = gdoc_selected.data_sets;
+		$(map_data_layers).each(function(index,map_data_layer_item)
 		{
-			var item = data_sets[i];
-			var item_html = $("<option name='" + item.name + "'>" + item.title + "</option>").data("item",item);
-			control.append(item_html);
-		}
-		control.selectmenu({
+			var control = map_data_layer_item.container.find("select");
+			control.empty();
+			control.append($("<option name=''>Select Data-Set</option>"));
+			for(var i=0;i<data_sets.length;i++)
+			{
+				var is_used=false;
+				var item = data_sets[i];
+				for(var x=0;x<map_data_layers.length;x++)
+				{
+					var layer_item = map_data_layers[x];
+					if(layer_item.layer && item.name==layer_item.layer.name)
+					{
+						is_used=true;
+						break;
+					}
+				}
+				if(is_used)
+					continue;
+				var item_html = $("<option name='" + item.name + "'>" + item.title + "</option>").data("item",item);
+				control.append(item_html);
+			}
+		});
+		/*control.selectmenu({
 			change:function(event, ui){
 				update_screen();
 			}
-		});
+		});*/
 	  }
+		
+		function refresh_data_set_colors()
+		{
+			var control = $("#data_set_select_colors");
+			control.empty();
+			for(var i=0;i<config.map_colors.length;i++)
+			{
+				var color = config.map_colors[i];
+				var select_box = $("<select id='color_" + i + "'/>");
+				var item_element = $("<li></li>").data("item",config.map_colors[i]);
+				item_element.append("<span class='data-set-color-item' style='background-color:" + color + ";'/>");
+				item_element.append(select_box);
+				map_data_layers[i] = {color:color,container:item_element,layer:null};
+				control.append(item_element);
+			}
+		}
 
       function addDataLayer(data_set_item, year) {
-		var where = "atlas_state_name = 'North Dakota'"
+		var styles = build_layer_style_ranges(data_set_item);
+		var where = "atlas_state_name = 'North Dakota'";
 		var layer = new google.maps.FusionTablesLayer({
 			query: {
 				select: "geometry",
-				from: gdoc_id,
+				from: gdoc_selected.doc_id,
 				where: where
 			},
-			styles: [
-				{
-				  polygonOptions: {
-					fillColor: '#00FF00',
-					fillOpacity: 0
-				  }
-				}, 
-				{
-				  where: data_set_item.map_col_name + ' > 0',
-				  polygonOptions: {
-					fillOpacity: 0.10
-					//fillColor: '#0000FF'
-				  }
-				}, 
-				{
-				  where: data_set_item.map_col_name + ' > 5',
-				  polygonOptions: {
-					fillOpacity: 0.50
-				  }
-				}
-			]
-			
+			styles: styles
 			//heatmap: {
 				//enabled: true
 			//}		
 		});
+		google.maps.event.addListener(layer, 'click', function(e) {
+
+			//map_col_name:"hogs_inventory_sqmi_2012",
+			//map_tooltip_description:"Ooooink!";
+			//map_tooltip_image_url:null;
+			var icon_img = "";
+			if(data_set_item.map_tooltip_image_url)
+				icon_img = "<img class='tooltip_image' src='" + data_set_item.map_tooltip_image_url + "'/>";
+				
+			var div_html = "<div class='tooltip_container'><div class='tooltip_title'>" + e.row["atlas_name"].value + "</div><table class='tooltip_container'><tr><td rowspan='2'>" + icon_img + "</td><th>" + data_set_item.map_tooltip_description + "</th></tr><tr><td>" + Math.round(e.row[data_set_item.map_col_name].value,2) + "</td></tr></table></div>";
+			e.infoWindowHtml = div_html;
+        });        
         layer.setMap(map);		
-		map_data_layers.push(layer);		
+		map_data_layers.push(layer);
       }
 	  
 	  function build_layer_style_ranges(data_set_item){
-		//var where = "";
-		//var items = data_set_item.max-data_set_item.min;
-		//var ranges = 
-		for(var i=0;i<items;i++)
+		var items = data_set_item.map_value_max-data_set_item.map_value_min;
+		var steps = 3;
+		var step = Math.ceil(items/steps,0);
+		var styles = [
+			{
+			  polygonOptions: {
+				fillColor: data_set_item.map_color,
+				fillOpacity: 0
+			  }
+			}
+		];
+		for(var i=0;i<steps;i++)
 		{
-		
+			styles.push({
+				where: data_set_item.map_col_name + " >= " + (data_set_item.map_value_min + (step*i)) + " and " + data_set_item.map_col_name + " < " + (data_set_item.map_value_min + (step*(i+1))),
+				polygonOptions: {
+					fillOpacity: Math.round(((i+1)/steps)*100)/100
+				  }
+		  });
 		}
+		console.log(styles);
+		return styles;
 	  }
 
       function createLegend(map, sector) {
@@ -413,10 +515,7 @@
         google.visualization.drawChart({
           containerId: "visualization",
           dataSourceUrl: "http://www.google.com/fusiontables/gvizdata?tq=",
-		  //https://www.googleapis.com/fusiontables/v2/query?sql=SELECT * FROM 1XGfTtjUQaCiAIBcR4VjryomxB1LN5St5rrC-BNCm where atlas_state_name = 'North Dakota'&key=AIzaSyBoAGzeRH2cg1aSXNSY18ISAuibsaF6i98
-		  query: "SELECT atlas_name," + data_set_item.chart_col_name + " FROM 1XGfTtjUQaCiAIBcR4VjryomxB1LN5St5rrC-BNCm where atlas_state_name = 'North Dakota' and " + data_set_item.chart_col_name + " >= 0",
-		  //query: "SELECT geometry, " + data_set + " FROM 1XGfTtjUQaCiAIBcR4VjryomxB1LN5St5rrC-BNCm where atlas_state_name = 'North Dakota' and data_year=" + year,
-          //query: "SELECT Sector,'2006','2007','2008','2009','2010' " + "FROM 18fyPg1LvW3KB3N5DE_ub-MKicB0Nx7vkGn9kw4s WHERE County = '" + county + "'",
+		  query: "SELECT atlas_name," + data_set_item.chart_col_name + " FROM " + gdoc_selected.doc_id + " where atlas_state_name = 'North Dakota' and " + data_set_item.chart_col_name + " >= 0",
           chartType: "PieChart",
           options: {
             title: 'North Dakota',
@@ -467,7 +566,20 @@
 						</td>
 						<td class="spacer"></td>
 						<td>
-							<select id="data_set_select" style="width:100%"></select>
+							<div class='container-fluid'>
+								<div class="row">
+									<!--<div class="col-md-9">							
+										<ul id="data_set_select_items" class="list-unstyled">
+											
+										</ul>
+									</div>-->
+									<div class="col-md-12">
+										<ul id="data_set_select_colors" class="list-unstyled">
+									
+										</ul>
+									</div>
+								</div>
+							</div>
 						</td>
 					</tr>
 				</table>
