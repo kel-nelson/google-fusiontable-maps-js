@@ -60,10 +60,24 @@
 	{
 		padding:0 4px;
 	}
-	#data_set_select_items
+	.vertical-align
+	{
+		position: relative;
+		top: 50%;
+		transform: translateY(-50%);
+	}
+	/*#data_set_select_items
 	{
 		height:100px;
 		overflow-y:auto;
+	}*/
+	#data_set_select_colors{
+		margin-top:4px;
+	}
+	#data_set_select_colors select
+	{
+		margin-left:4px;
+		vertical-align:top;
 	}
 	.data-set-color-item
 	{
@@ -73,6 +87,7 @@
 	}
 	  #map-canvas {
         width: 100%;
+		border:solid 1px #ddd;
       }
 
       #visualization {
@@ -342,29 +357,78 @@
 			for(var i=0;i<config.map_colors.length;i++)
 			{
 				var color = config.map_colors[i];
-				var select_box = $("<select id='color_" + i + "'/>");
-				var item_element = $("<li></li>").data("item",config.map_colors[i]);
+				var select_box = $("<select name='color_" + i + "' class='form-control'/>").data("index",i).on("change",function(e){
+					var _control = $(this);
+					addDataLayer(_control.data("index"), _control.find("option:selected").data("item"), $("#year_value").val());
+				});
+				var item_element = $("<li></li>").data("item",null);
 				item_element.append("<span class='data-set-color-item' style='background-color:" + color + ";'/>");
 				item_element.append(select_box);
+				var icon_info_dialog = $("<div><div id='chart_" + i + "' class='chart_container'></div></div>");
+				var icon_button = $("<a class='btn btn-small' href='#' title='Chart It!'><i class='glyphicon glyphicon-stats'></i></a>").data("controls",{select:select_box,dialog:icon_info_dialog}).on("click",function(e)
+				{
+					var _control = $(this);
+					var _control_select = _control.data("controls")["select"];
+					var item_data = _control_select.find("option:selected").data("item");
+					if(!item_data)
+					{
+						_control_select.effect( "highlight" );
+						return;
+					}
+					
+					var dialogbox =  _control.data("controls")["dialog"];
+					dialogbox.dialog("open");
+					
+					var chart_container = dialogbox.find(".chart_container");
+					if(chart_container.data("item_name") == item_data.name)
+						return;
+						
+					dialogbox.dialog("option","title",item_data.title);
+					drawChart(chart_container.attr('id'),item_data, $("#year_value").val());
+					
+				});
+				item_element.append(icon_info_dialog);
+				icon_info_dialog.dialog({autoOpen: false, width: 450});
+				//icon_info_dialog.dialog("option","show");
+				item_element.append(icon_button);
 				map_data_layers[i] = {color:color,container:item_element,layer:null};
 				control.append(item_element);
 			}
 		}
 
-      function addDataLayer(data_set_item, year) {
-		var styles = build_layer_style_ranges(data_set_item);
+      function addDataLayer(layer_index, data_set_item, year) {
+		var map_data_layer = map_data_layers[layer_index];
+		console.log("layer:" + layer_index);
+		if(!data_set_item)
+		{
+			map_data_layer.layer.setMap(null);
+			map_data_layer.layer = null;
+			return;
+		}
+		if(map_data_layer.layer != null)
+		{
+			map_data_layer.layer.setMap(null);
+			map_data_layer.layer = null;
+		}
+		
+		var styles = build_layer_style_ranges(map_data_layer.color,data_set_item);
 		var where = "atlas_state_name = 'North Dakota'";
-		var layer = new google.maps.FusionTablesLayer({
-			query: {
-				select: "geometry",
+		map_data_layer.layer = new google.maps.FusionTablesLayer({
+			query:
+			{
+				//select: "*",
 				from: gdoc_selected.doc_id,
 				where: where
 			},
-			styles: styles
+			styles: styles,
+			suppressInfoWindows: true,
+			//map:map
 			//heatmap: {
 				//enabled: true
 			//}		
 		});
+		map_data_layer.layer.setMap(map);
+		/*
 		google.maps.event.addListener(layer, 'click', function(e) {
 
 			//map_col_name:"hogs_inventory_sqmi_2012",
@@ -376,29 +440,32 @@
 				
 			var div_html = "<div class='tooltip_container'><div class='tooltip_title'>" + e.row["atlas_name"].value + "</div><table class='tooltip_container'><tr><td rowspan='2'>" + icon_img + "</td><th>" + data_set_item.map_tooltip_description + "</th></tr><tr><td>" + Math.round(e.row[data_set_item.map_col_name].value,2) + "</td></tr></table></div>";
 			e.infoWindowHtml = div_html;
-        });        
-        layer.setMap(map);		
-		map_data_layers.push(layer);
+        });   */     
+        //layer.setMap(map);		
+		//console.log(map.layers);
+		//console.log(layer_fusion);
+		//map_data_layers.push(layer);
       }
-	  
-	  function build_layer_style_ranges(data_set_item){
+	  //var zIndex=0;
+	  function build_layer_style_ranges(base_color, data_set_item){
 		var items = data_set_item.map_value_max-data_set_item.map_value_min;
-		var steps = 3;
+		var steps = 5;
 		var step = Math.ceil(items/steps,0);
 		var styles = [
 			{
 			  polygonOptions: {
-				fillColor: data_set_item.map_color,
-				fillOpacity: 0
+				fillColor: base_color,
+				fillOpacity: .1
 			  }
 			}
 		];
+		//zIndex++;
 		for(var i=0;i<steps;i++)
 		{
 			styles.push({
 				where: data_set_item.map_col_name + " >= " + (data_set_item.map_value_min + (step*i)) + " and " + data_set_item.map_col_name + " < " + (data_set_item.map_value_min + (step*(i+1))),
 				polygonOptions: {
-					fillOpacity: Math.round(((i+1)/steps)*100)/100
+					fillOpacity: Math.round(((i+1)/steps)*100)/100,
 				  }
 		  });
 		}
@@ -511,14 +578,16 @@
         map.setMapTypeId('map-style');
       }
 
-      function drawVisualization(data_set_item, year) {
+      function drawChart(element_id, data_set_item, year) {
+		console.log(element_id);console.log(data_set_item);
         google.visualization.drawChart({
-          containerId: "visualization",
+          //containerId: "visualization",
+		  containerId: element_id,
           dataSourceUrl: "http://www.google.com/fusiontables/gvizdata?tq=",
 		  query: "SELECT atlas_name," + data_set_item.chart_col_name + " FROM " + gdoc_selected.doc_id + " where atlas_state_name = 'North Dakota' and " + data_set_item.chart_col_name + " >= 0",
           chartType: "PieChart",
           options: {
-            title: 'North Dakota',
+            title: data_set_item.title,
             height: 400,
             width: 400
           }
@@ -531,59 +600,60 @@
   <body>
 	<div class="container-fluid">
 		<div class="row">
-		<div class="col-md-12">
-			<form class="controls-menu">
-				<table class="controls-menu">
-					<tr>
-						<th>
-							<label class="control-label">Select Year</label>
-						</th>
-						<th class="spacer"></th>
-						<th>
-							<label class="control-label">Select Data-Set</label>
-						</th>
-					</tr>
-					<tr>
-						<td>
-							<div class="container-fluid" style="width:350px;">
-								<div class="row">
-									<div class="col-md-12">
-										<h3 id="year_value" style="text-align:center;"></h3>
+			<div class="col-md-12">
+				<form class="controls-menu form-inline">
+					<table class="controls-menu">
+						<tr>
+							<th>
+								<label class="control-label">Select Year</label>
+							</th>
+							<th class="spacer"></th>
+							<th>
+								<label class="control-label">Select Data-Set</label>
+							</th>
+						</tr>
+						<tr>
+							<td>
+								<div class="container-fluid" style="width:350px;">
+									<div class="row">
+										<div class="col-md-12">
+											<h3 id="year_value" style="text-align:center;"></h3>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col-md-2" style="text-align:center;" id="year_slider_label_start">
+											{{Start Year}}
+										</div>
+										<div class="col-md-8">
+											<div id="year_slider"></div>
+										</div>
+										<div class="col-md-2" style="text-align:center;" id="year_slider_label_end">
+											{{End Year}}
+										</div>
 									</div>
 								</div>
-								<div class="row">
-									<div class="col-md-2" style="text-align:center;" id="year_slider_label_start">
-										{{Start Year}}
-									</div>
-									<div class="col-md-8">
-										<div id="year_slider"></div>
-									</div>
-									<div class="col-md-2" style="text-align:center;" id="year_slider_label_end">
-										{{End Year}}
-									</div>
-								</div>
-							</div>
-						</td>
-						<td class="spacer"></td>
-						<td>
-							<div class='container-fluid'>
-								<div class="row">
-									<!--<div class="col-md-9">							
-										<ul id="data_set_select_items" class="list-unstyled">
-											
-										</ul>
-									</div>-->
-									<div class="col-md-12">
-										<ul id="data_set_select_colors" class="list-unstyled">
-									
-										</ul>
+							</td>
+							<td class="spacer"></td>
+							<td>
+								<div class='container-fluid'>
+									<div class="row">
+										<!--<div class="col-md-9">							
+											<ul id="data_set_select_items" class="list-unstyled">
+												
+											</ul>
+										</div>-->
+										<div class="col-md-12">
+											<ul id="data_set_select_colors" class="list-unstyled">
+										
+											</ul>
+										</div>
 									</div>
 								</div>
-							</div>
-						</td>
-					</tr>
-				</table>
-			</form>  
+							</td>
+						</tr>
+					</table>
+				</form>  
+			</div>
 		</div>
 		<div class="row">
 			<div class="col-md-9">
