@@ -365,7 +365,7 @@
 				item_element.append("<span class='data-set-color-item' style='background-color:" + color + ";'/>");
 				item_element.append(select_box);
 				var icon_info_dialog = $("<div><div id='chart_" + i + "' class='chart_container'></div></div>");
-				var icon_button = $("<a class='btn btn-small' href='#' title='Chart It!'><i class='glyphicon glyphicon-stats'></i></a>").data("controls",{select:select_box,dialog:icon_info_dialog}).on("click",function(e)
+				var icon_button = $("<a class='btn btn-small' href='javascript:void(0);' title='Chart It!'><i class='glyphicon glyphicon-stats'></i></a>").data("controls",{select:select_box,dialog:icon_info_dialog}).on("click",function(e)
 				{
 					var _control = $(this);
 					var _control_select = _control.data("controls")["select"];
